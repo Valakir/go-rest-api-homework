@@ -69,7 +69,12 @@ func getTasks(w http.ResponseWriter, r *http.Request) {
 	// так как все успешно, то статус OK
 	w.WriteHeader(http.StatusOK)
 	// записываем сериализованные в JSON данные в тело ответа
-	w.Write(resp)
+	_, errMessage := w.Write(resp)
+	if errMessage != nil {
+		fmt.Printf("%v", errMessage)
+		return
+	}
+
 }
 
 func createTask(w http.ResponseWriter, r *http.Request) {
@@ -86,9 +91,13 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	tasks[task.ID] = task // добавляем задачу в слайс
-
+	_, ok := tasks[task.ID] // ищем задачу в слайсе, проверяя ID
+	if ok {
+		http.Error(w, "Задача с таким ID уже существует", http.StatusBadRequest)
+		return
+	}
+	// добавляем задачу в слайс
+	tasks[task.ID] = task
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 }
@@ -101,20 +110,24 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := json.Marshal(task)
+	resp, err := json.Marshal(task) // сериализуем данные из слайса tasks
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(resp)
+	_, errMessage := w.Write(resp)
+	if errMessage != nil {
+		fmt.Printf("%v", errMessage)
+		return
+	}
 }
 
 func deleteTask(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id") // получаем ID задачи из URL-параметра
-	deleted, ok := tasks[id]    //	ищем задачу в слайсе
+	_, ok := tasks[id]          //	ищем задачу в слайсе
 	if !ok {
 		http.Error(w, "Задача не найдена", http.StatusBadRequest)
 		return
@@ -123,5 +136,4 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 	delete(tasks, id)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"id": "` + deleted.ID + `"}`)) // возвращаем ID удаленной задачи (deleted.ID)
 }
